@@ -4,6 +4,7 @@ import { Leaf } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
+import { toast } from "../store/toastStore";
 
 const Signup = () => {
   const { user, signup } = useAuthStore();
@@ -23,6 +24,7 @@ const Signup = () => {
     setSubmitting(true);
     try {
       await signup(form);
+      toast("Account created — welcome!");
       navigate("/", { replace: true });
     } catch (err) {
       setError(

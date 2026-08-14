@@ -4,7 +4,7 @@ import { Leaf } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
-
+import { toast } from "../store/toastStore";
 const Login = () => {
   const { user, login } = useAuthStore();
   const navigate = useNavigate();
@@ -22,7 +22,8 @@ const Login = () => {
     setError("");
     setSubmitting(true);
     try {
-      await login(form);
+      const data = await login(form);
+      toast(`Welcome back, ${data.name?.split(" ")[0] || "friend"}!`);
       navigate("/", { replace: true });
     } catch (err) {
       setError(
