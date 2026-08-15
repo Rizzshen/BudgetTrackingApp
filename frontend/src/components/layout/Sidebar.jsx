@@ -1,11 +1,15 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Leaf, LogOut, Receipt, Sparkles } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
+import { Wallet, Target, Repeat } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/expenses", label: "Expenses", icon: Receipt, end: false },
   { to: "/insights", label: "Insights", icon: Sparkles, end: false },
+  { to: "/budgets", label: "Budgets", icon: Wallet, end: false },
+  { to: "/goals", label: "Goals", icon: Target, end: false },
+  { to: "/recurring", label: "Recurring", icon: Repeat, end: false },
 ];
 
 const getInitials = (name = "") =>

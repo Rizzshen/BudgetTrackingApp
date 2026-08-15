@@ -7,6 +7,9 @@ import Dashboard from "./pages/Dashboard";
 import Expenses from "./pages/Expenses";
 import Insights from "./pages/Insights";
 import Toaster from "./components/ui/Toaster";
+import Budgets from "./pages/Budgets";
+import Goals from "./pages/Goals";
+import Recurring from "./pages/Recurring";
 
 const App = () => {
   return (
@@ -20,6 +23,9 @@ const App = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/insights" element={<Insights />} />
+            <Route path="/budgets" element={<Budgets />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/recurring" element={<Recurring />} />
           </Route>
         </Route>
 
