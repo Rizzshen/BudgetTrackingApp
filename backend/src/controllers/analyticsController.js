@@ -74,3 +74,37 @@ export const getSummary = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc   Get daily spending totals for heatmap + streak
+// @route  GET /api/analytics/daily
+export const getDaily = async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+    const days = Math.min(parseInt(req.query.days) || 120, 365);
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+
+    const rows = await Expense.aggregate([
+      {
+        $match: {
+          user: userId,
+          type: "expense",
+          date: { $gte: start },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          total: { $sum: "$amount" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    res.json(rows.map((r) => ({ date: r._id, total: r.total })));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

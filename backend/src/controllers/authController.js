@@ -54,3 +54,17 @@ export const login = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc   Get current logged-in user
+// @route  GET /api/auth/me
+export const getMe = async (req, res) => {
+  try {
+    // req.user is already populated by the 'protect' middleware!
+    res.json({
+      _id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

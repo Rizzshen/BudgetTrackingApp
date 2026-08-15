@@ -11,6 +11,9 @@ export const updateExpense = (id, data) => api.put(`/expenses/${id}`, data);
 
 export const deleteExpense = (id) => api.delete(`/expenses/${id}`);
 
+export const getAnalyticsDaily = (params) =>
+  api.get("/analytics/daily", { params });
+
 // Analytics
 export const getAnalyticsSummary = (params) =>
   api.get("/analytics/summary", { params });

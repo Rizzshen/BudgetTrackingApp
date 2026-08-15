@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, Scale } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Leaf, Scale } from "lucide-react";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -13,11 +13,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getAnalyticsSummary } from "../api/expenses";
+import { getAnalyticsDaily, getAnalyticsSummary } from "../api/expenses";
 import { useAuthStore } from "../store/authStore";
 import { CHART_COLORS, formatCurrency, formatMonth } from "../lib/constants";
 import Dropdown from "../components/ui/Dropdown";
-import {DashboardSkeleton} from "../components/ui/Skeletons";
+import { DashboardSkeleton } from "../components/ui/Skeletons";
+import Heatmap from "../components/dashboard/Heatmap";
+import StreakCard from "../components/dashboard/StreakCard";
+import BudgetPulse from "../components/dashboard/BudgetPulse";
+import GoalSpotlight from "../components/dashboard/GoalSpotlight";
 
 const StatCard = ({ label, value, icon: Icon, valueClass = "" }) => (
   <div className="rounded-card border border-border bg-white p-6 shadow-card">
@@ -39,12 +43,20 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [months, setMonths] = useState(6);
+  const [dailyData, setDailyData] = useState([]);
+
   const fetchSummary = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const { data } = await getAnalyticsSummary({ months });
-      setSummary(data);
+      const [summaryRes, dailyRes] = await Promise.all([
+        getAnalyticsSummary({ months }),
+        getAnalyticsDaily({ days: 120 }),
+      ]);
+      setSummary(summaryRes.data);
+      setDailyData(dailyRes.data);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load summary.");
+      setError(err.response?.data?.message || "Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
@@ -53,20 +65,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
-
-  useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        const { data } = await getAnalyticsSummary();
-        setSummary(data);
-      } catch (err) {
-        setError(err.response?.data?.message || "Failed to load summary.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSummary();
-  }, []);
 
   const categoryData = (summary?.byCategory || []).map((c) => ({
     name: c._id,
@@ -82,30 +80,42 @@ const Dashboard = () => {
     }));
 
   const hasData = categoryData.length > 0;
+  const balance = summary?.balance ?? 0;
 
   if (loading) return <DashboardSkeleton />;
 
   return (
     <div>
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl">
-            Hello, {user?.name?.split(" ")[0]}
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Here's an overview of your finances.
-          </p>
+      {/* Hero */}
+      <header className="relative mb-6 rounded-card bg-sidebar px-8 py-7 text-cream shadow-card">
+        <Leaf className="pointer-events-none absolute -right-8 -top-10 h-44 w-44 rotate-12 text-cream/5" />
+        <Leaf className="pointer-events-none absolute -bottom-12 right-28 h-36 w-36 -rotate-45 text-cream/5" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-sage-light/80">
+              Welcome back
+            </p>
+            <h1 className="mt-1 font-display text-3xl">
+              Hello, {user?.name?.split(" ")[0]}
+            </h1>
+            <p className="mt-2 text-sm text-cream/70">
+              {balance >= 0
+                ? `You're ${formatCurrency(balance)} ahead this period.`
+                : `You're ${formatCurrency(Math.abs(balance))} behind this period.`}{" "}
+              Small choices today, big freedom tomorrow.
+            </p>
+          </div>
+          <Dropdown
+            className="w-44"
+            value={months}
+            onChange={setMonths}
+            options={[
+              { value: 3, label: "Last 3 months" },
+              { value: 6, label: "Last 6 months" },
+              { value: 12, label: "Last 12 months" },
+            ]}
+          />
         </div>
-        <Dropdown
-          className="w-44"
-          value={months}
-          onChange={setMonths}
-          options={[
-            { value: 3, label: "Last 3 months" },
-            { value: 6, label: "Last 6 months" },
-            { value: 12, label: "Last 12 months" },
-          ]}
-        />
       </header>
 
       {error && (
@@ -128,15 +138,12 @@ const Dashboard = () => {
         />
         <StatCard
           label="Balance"
-          value={formatCurrency(summary?.balance ?? 0)}
+          value={formatCurrency(balance)}
           icon={Scale}
-          valueClass={
-            (summary?.balance ?? 0) < 0 ? "text-red-600" : "text-sage-dark"
-          }
+          valueClass={balance < 0 ? "text-red-600" : "text-sage-dark"}
         />
       </div>
 
-      {/* Charts / empty state */}
       {!hasData ? (
         <div className="rounded-card border border-border bg-white p-10 text-center shadow-card">
           <h2 className="font-display text-lg">No data yet</h2>
@@ -151,107 +158,119 @@ const Dashboard = () => {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-5">
-          {/* Monthly trend */}
-          <div className="rounded-card border border-border bg-white p-6 shadow-card lg:col-span-3">
-            <h2 className="font-display text-lg">Monthly Trend</h2>
-            <div className="mt-4 h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={trendData}
-                  margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor="#5c7a56"
-                        stopOpacity={0.35}
+        <>
+          {/* Trend + donut */}
+          <div className="grid gap-6 lg:grid-cols-5">
+            <div className="rounded-card border border-border bg-white p-6 shadow-card lg:col-span-3">
+              <h2 className="font-display text-lg">Monthly Trend</h2>
+              <div className="mt-4 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={trendData}
+                    margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#e7e5dc"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#6b7264", fontSize: 12 }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#6b7264", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(92, 122, 86, 0.08)" }}
+                      formatter={(value) => [formatCurrency(value), "Spent"]}
+                    />
+                    <Bar
+                      dataKey="total"
+                      fill="#5c7a56"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={48}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-card border border-border bg-white p-6 shadow-card lg:col-span-2">
+              <h2 className="font-display text-lg">Spending by Category</h2>
+              <div className="mt-4 h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={45}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {categoryData.map((entry, i) => (
+                        <Cell
+                          key={entry.name}
+                          fill={CHART_COLORS[i % CHART_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-4 space-y-2">
+                {categoryData.map((c, i) => (
+                  <li
+                    key={c.name}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="flex items-center gap-2 text-ink-muted">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            CHART_COLORS[i % CHART_COLORS.length],
+                        }}
                       />
-                      <stop offset="100%" stopColor="#5c7a56" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e7e5dc"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#6b7264", fontSize: 12 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#6b7264", fontSize: 12 }}
-                  />
-                  <Tooltip
-                    formatter={(value) => [formatCurrency(value), "Spent"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="total"
-                    stroke="#405b3d"
-                    strokeWidth={2}
-                    fill="url(#trendFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                      {c.name}
+                    </span>
+                    <span className="font-medium text-ink">
+                      {formatCurrency(c.value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
-          {/* By category */}
-          <div className="rounded-card border border-border bg-white p-6 shadow-card lg:col-span-2">
-            <h2 className="font-display text-lg">Spending by Category</h2>
-            <div className="mt-4 h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    stroke="none"
-                  >
-                    {categoryData.map((entry, i) => (
-                      <Cell
-                        key={entry.name}
-                        fill={CHART_COLORS[i % CHART_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
+          {/* Heatmap + streak */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <Heatmap dailyData={dailyData} />
             </div>
-            <ul className="mt-4 space-y-2">
-              {categoryData.map((c, i) => (
-                <li
-                  key={c.name}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="flex items-center gap-2 text-ink-muted">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{
-                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-                      }}
-                    />
-                    {c.name}
-                  </span>
-                  <span className="font-medium text-ink">
-                    {formatCurrency(c.value)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="lg:col-span-2">
+              <StreakCard dailyData={dailyData} />
+            </div>
           </div>
-        </div>
+        </>
       )}
+
+      {/* Budgets + goals — always visible so new users see the CTAs */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <BudgetPulse />
+        </div>
+        <div className="lg:col-span-2">
+          <GoalSpotlight />
+        </div>
+      </div>
     </div>
   );
 };

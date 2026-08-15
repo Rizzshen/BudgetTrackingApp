@@ -22,12 +22,8 @@ app.use("/api/budgets", budgetRoutes);
 app.use("/api/recurring", recurringRoutes);
 app.use("/api/goals", goalRoutes);
 
-
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running 🎉" });
-});
-app.get("/me", protect, (req, res) => {
-  res.json({ user: req.user });
 });
 
 startScheduler();
