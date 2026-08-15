@@ -5,6 +5,7 @@ import { protect } from "./middleware/authMiddleware.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import budgetRoutes from "./routes/budgetRoutes.js";
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/budgets", budgetRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running 🎉" });
